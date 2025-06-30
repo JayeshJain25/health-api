@@ -15,10 +15,22 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # OAuth2 scheme for token extraction
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-# Dummy get_user function (replace with real DB logic)
+# Get user function for database lookup
 async def get_user(email: str):
-    # TODO: Implement actual DB lookup
-    return {"email": email, "name": "Test User", "hashed_password": get_password_hash("testpass")}
+    db = MongoDB()
+    try:
+        users = db.get_collection("users")
+        user = users.find_one({"email": email})
+        if user:
+            return {
+                "email": user["email"],
+                "name": user["name"],
+                "hashed_password": user["hashed_password"],
+                "_id": str(user["_id"])
+            }
+        return None
+    finally:
+        db.close()
 
 # Dummy TokenData class (replace with your schema)
 class TokenData:
@@ -36,9 +48,16 @@ async def register_user(email: str, name: str, password: str):
         raise Exception("User already exists")
     hashed_password = get_password_hash(password)
     user_doc = {"email": email, "name": name, "hashed_password": hashed_password}
-    users.insert_one(user_doc)
+    result = users.insert_one(user_doc)
+    
+    # Create JWT token for the new user
+    access_token = create_access_token(
+        data={"sub": email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    user_id = str(result.inserted_id)
     db.close()
-    return True
+    return access_token, user_id
 
 async def login_user(email: str, password: str):
     db = MongoDB()
@@ -55,7 +74,8 @@ async def login_user(email: str, password: str):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     user_id = str(user.get("_id"))
-    return access_token, user_id
+    user_name = user.get("name")
+    return access_token, user_id, user_name
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth, genai, get_history
+from app.routes import auth, genai, get_history, profile, dashboard
 
 app = FastAPI(
     title="Health GenAI API",
@@ -19,8 +19,10 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(profile.router, prefix="/api/v1/user", tags=["User Profile"])
 app.include_router(genai.router, prefix="/api/v1/genai", tags=["GenAI"])
 app.include_router(get_history.router, prefix="/api/v1/genai", tags=["GenAI History"])
+app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 
 @app.get("/")
 async def root():
