@@ -123,15 +123,22 @@ async def get_dashboard_overview(
     try:
         history_collection = db['history']
         
-        # Get today's date range
-        today = date.today()
-        start_of_day = datetime.combine(today, datetime.min.time())
-        end_of_day = datetime.combine(today, datetime.max.time())
+        # Get today's date range in IST, then convert to UTC for database query
+        ist_now = datetime.now(IST)
+        ist_today = ist_now.date()
         
-        # Get today's scans
+        # Create IST start and end of day, then convert to UTC
+        ist_start_of_day = datetime.combine(ist_today, datetime.min.time()).replace(tzinfo=IST)
+        ist_end_of_day = datetime.combine(ist_today, datetime.max.time()).replace(tzinfo=IST)
+        
+        # Convert to UTC for database query
+        utc_start_of_day = ist_start_of_day.astimezone(timezone.utc).replace(tzinfo=None)
+        utc_end_of_day = ist_end_of_day.astimezone(timezone.utc).replace(tzinfo=None)
+        
+        # Get today's scans using UTC range
         today_scans = list(history_collection.find({
             "user_id": user_id,
-            "timestamp": {"$gte": start_of_day, "$lte": end_of_day}
+            "timestamp": {"$gte": utc_start_of_day, "$lte": utc_end_of_day}
         }).sort("timestamp", -1))
         
         # Get recent scans (last 10)
@@ -170,8 +177,8 @@ async def get_dashboard_overview(
             ))
         
         # Calculate weekly stats (last 7 days)
-        week_ago = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        week_ago = week_ago.replace(day=week_ago.day - 7)
+        week_ago = datetime.now() - timedelta(days=7)
+        week_ago = week_ago.replace(hour=0, minute=0, second=0, microsecond=0)
         
         weekly_scans = list(history_collection.find({
             "user_id": user_id,
@@ -230,14 +237,21 @@ async def get_today_scans(
     try:
         history_collection = db['history']
         
-        # Get today's date range
-        today = date.today()
-        start_of_day = datetime.combine(today, datetime.min.time())
-        end_of_day = datetime.combine(today, datetime.max.time())
+        # Get today's date range in IST, then convert to UTC for database query
+        ist_now = datetime.now(IST)
+        ist_today = ist_now.date()
+        
+        # Create IST start and end of day, then convert to UTC
+        ist_start_of_day = datetime.combine(ist_today, datetime.min.time()).replace(tzinfo=IST)
+        ist_end_of_day = datetime.combine(ist_today, datetime.max.time()).replace(tzinfo=IST)
+        
+        # Convert to UTC for database query
+        utc_start_of_day = ist_start_of_day.astimezone(timezone.utc).replace(tzinfo=None)
+        utc_end_of_day = ist_end_of_day.astimezone(timezone.utc).replace(tzinfo=None)
         
         today_scans = list(history_collection.find({
             "user_id": user_id,
-            "timestamp": {"$gte": start_of_day, "$lte": end_of_day}
+            "timestamp": {"$gte": utc_start_of_day, "$lte": utc_end_of_day}
         }).sort("timestamp", -1))
         
         scan_summaries = []
@@ -273,7 +287,7 @@ async def get_user_alerts(
         history_collection = db['history']
         
         # Get recent scans (last 30 days)
-        thirty_days_ago = datetime.now().replace(day=datetime.now().day - 30)
+        thirty_days_ago = datetime.now() - timedelta(days=30)
         recent_scans = list(history_collection.find({
             "user_id": user_id,
             "timestamp": {"$gte": thirty_days_ago}
